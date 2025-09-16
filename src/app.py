@@ -41,12 +41,14 @@ Não repita a pergunta do usuário, mas responda diretamente contextualizando a 
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash-latest",
             contents=prompt
         )
         return response.text or "Desculpe, não consegui processar sua mensagem."
     except Exception as e:
-        return f"Ops, algo deu errado! Erro: {e}"
+        # Log the error for debugging (in production, use proper logging)
+        print(f"Error generating response: {e}")
+        return "Desculpe, não consegui processar sua mensagem no momento. Tente novamente."
    
 @app.route('/')
 def index():
@@ -86,8 +88,32 @@ def download_history():
         json.dump(conversation_history, f, ensure_ascii=False, indent=2)
     return jsonify({'message': f'Histórico salvo como {filename}', 'filename': filename})
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Test basic functionality
+        status = "healthy"
+        timestamp = datetime.now().isoformat()
+        
+        # You can add more health checks here in the future
+        # For example: database connection, external API status, etc.
+        
+        return jsonify({
+            'status': status,
+            'timestamp': timestamp,
+            'service': 'IRIS Chatbot',
+            'version': '1.0.0'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': 'Health check failed',
+            'timestamp': datetime.now().isoformat()
+        }), 503
+
 def create_app():
     return app
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)

@@ -17,15 +17,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "IRIS Chatbot"
+args = "IRIS Chatbot Production"
 
 [[workflows.workflow]]
-name = "IRIS Chatbot"
+name = "IRIS Chatbot Production"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python run.py"
+args = "gunicorn -c gunicorn.conf.py run:app"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -35,6 +35,6 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 35885
-externalPort = 3000
+[deployment]
+deploymentTarget = "autoscale"
+run = ["python", "run.py"]
