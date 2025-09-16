@@ -1,11 +1,11 @@
 # Chatbot de Terminal com LangChain (IRIS)
 
-IRIS (Interface de Reconhecimento e Informação Sistematizada) é um chatbot de terminal construído com LangChain e Groq, projetado para responder perguntas de forma amigável e contextualizada em português. Criado por Douglas, IRIS mantém o histórico da conversa e salva interações em um arquivo JSON ao encerrar.
+IRIS (Interface de Reconhecimento e Informação Sistematizada) é um chatbot de terminal construído com LangChain e Gemini, projetado para responder perguntas de forma amigável e contextualizada em português. Criado por Douglas, IRIS mantém o histórico da conversa e salva interações em um arquivo JSON ao encerrar.
 
 ## Pré-requisitos
 
 - Python 3.8+
-- Chave de API do Groq (obtenha em xAI API)
+- Chave de API do Gemini
 - Pacotes Python: langchain, langchain-groq, python-dotenv
 
 ---
