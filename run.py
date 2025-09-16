@@ -1,7 +1,7 @@
 #INICIAR O NOSSO SERVIDOR
-from src.app import iris_chatbot
+from src.app import create_app
 
-app = iris_chatbot()
+app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

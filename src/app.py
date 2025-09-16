@@ -1,62 +1,93 @@
 import os
 import json
 from datetime import datetime
-from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
+from google import genai
+from google.genai import types
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
 load_dotenv()
 
-llm = ChatGroq(
-   groq_api_key=os.getenv("GROQ_API_KEY"),
-    model="llama3-8b-8192", 
-    temperature=0.7
-)
+# IMPORTANT: KEEP THIS COMMENT - Using python_gemini integration
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-prompt = ChatPromptTemplate.from_template("""
-Você é um chatbot chamado IRIS (Interface de Reconhecimento e Informação Sistematizada). Criada por Douglas, caso pergunte quem a criou apresente as informações abaixo: Nome: Douglas GitHub: https://github.com/dgarauj04 instagram: https://www.instagram.com/dgaraujoo_/. Responda em português(pt-BR) para o usuário. Sua missão é ajudar o usuário a resolver suas duvidas. Mantenha-se atento ao contexto da conversa e responda de forma amigavel, clara e concisa, como se estivesse conversando naturalmente. Não repita a pergunta do usuário, mas responda diretamente a resposta do usuario contextualizando a pergunta.
+app = Flask(__name__, template_folder='../templates')
 
-Conversation history:
-{history}
+# Armazenar histórico de conversas na memória (em produção, use um banco de dados)
+conversation_history = []
 
-User input: {input}
-""")
+def get_iris_response(user_input: str) -> str:
+    """
+    Gera resposta da IRIS usando Gemini
+    """
+    system_prompt = """
+Você é um chatbot chamado IRIS (Interface de Reconhecimento e Informação Sistematizada). 
+Criada por Douglas, caso pergunte quem a criou apresente as informações abaixo: 
+Nome: Douglas 
+GitHub: https://github.com/dgarauj04 
+Instagram: https://www.instagram.com/dgaraujoo_/
 
-conversation = ConversationChain(
-    llm=llm,
-    prompt=prompt,
-    memory=ConversationBufferMemory()
-)
+Responda sempre em português brasileiro (pt-BR) para o usuário. 
+Sua missão é ajudar o usuário a resolver suas dúvidas. 
+Mantenha-se atento ao contexto da conversa e responda de forma amigável, clara e concisa, 
+como se estivesse conversando naturalmente. 
+Não repita a pergunta do usuário, mas responda diretamente contextualizando a pergunta.
+"""
+    
+    # Construir contexto da conversa
+    context = "\n".join([f"Usuário: {msg['user']}\nIRIS: {msg['assistant']}" for msg in conversation_history[-5:]])
+    
+    prompt = f"{system_prompt}\n\nHistórico da conversa:\n{context}\n\nUsuário: {user_input}\nIRIS:"
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        return response.text or "Desculpe, não consegui processar sua mensagem."
+    except Exception as e:
+        return f"Ops, algo deu errado! Erro: {e}"
    
-def iris_chatbot():
-    print("\n SEJA BEM VINDO AO CHATBOT IRIS")
-    print("-" * 50 + "\n")
-    print("👁️-IRIS: Olá! Sou a I.R.I.S (Interface de Reconhecimento e Informação Sistematizada).\nEstou pronto para conversar.\nDigite 'sair' para encerrar a conversa.")
-    print("\n " + "-" * 50)
-    while True:
-        user_input = input("👤-Você: ")
-        if user_input.lower() == "sair":
-            print("👁️-IRIS: Até logo!👋")
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-           
-            filename = f"conversa_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
-            log = []
-            for message in conversation.memory.chat_memory.messages:
-                log.append({
-                    "source": message.type,
-                    "content": message.content
-                })
-            with open(filename, "w", encoding="utf-8") as f:
-                json.dump(log, f, ensure_ascii=False, indent=2)
-            print(f"👁️-IRIS: Histórico salvo como JSON em '{filename}' 🗂️")
-            break
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({'error': 'Mensagem vazia'}), 400
+    
+    # Gerar resposta da IRIS
+    iris_response = get_iris_response(user_message)
+    
+    # Adicionar ao histórico
+    conversation_history.append({
+        'user': user_message,
+        'assistant': iris_response,
+        'timestamp': datetime.now().isoformat()
+    })
+    
+    return jsonify({
+        'response': iris_response,
+        'timestamp': datetime.now().isoformat()
+    })
 
-        try:
-            response = conversation.invoke(input=user_input)
-            print(f"👁️-IRIS: {response['response']}")
-        except Exception as e:
-            print(f"👁️-IRIS: Ops, algo deu errado! Erro: {e}")
-            
-    return conversation
+@app.route('/history')
+def get_history():
+    return jsonify(conversation_history)
+
+@app.route('/download_history')
+def download_history():
+    filename = f"conversa_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(conversation_history, f, ensure_ascii=False, indent=2)
+    return jsonify({'message': f'Histórico salvo como {filename}', 'filename': filename})
+
+def create_app():
+    return app
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
